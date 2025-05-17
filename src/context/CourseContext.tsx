@@ -1,7 +1,7 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from "react";
 import { toast } from "sonner";
-import { mockCourses, mockCourseProgress } from "../data/mockData";
+import { supabase } from "@/lib/supabase";
 import { Course, CourseProgress } from "../types";
 import { useAuth } from "./AuthContext";
 
@@ -10,15 +10,19 @@ interface CourseContextType {
   enrolledCourses: Course[];
   courseProgress: CourseProgress[];
   loading: boolean;
-  getCourse: (courseId: string) => Course | undefined;
+  getCourse: (courseId: string) => Promise<Course | undefined>;
   getCourseProgress: (courseId: string) => CourseProgress | undefined;
   enrollInCourse: (courseId: string) => Promise<void>;
   updateCourseProgress: (courseId: string, lectureId: string, progressPercentage: number) => Promise<void>;
   searchCourses: (query: string) => Course[];
-  filterCoursesByCategory: (category: string) => Course[];
+  filterCoursesByCategory: (categoryId: string) => Course[];
   addCourse: (course: Omit<Course, "id" | "created_at" | "updated_at">) => Promise<void>;
   updateCourse: (courseId: string, courseData: Partial<Course>) => Promise<void>;
   deleteCourse: (courseId: string) => Promise<void>;
+  fetchCourseCategories: () => Promise<{ id: string; name: string }[]>;
+  getCourseSections: (courseId: string) => Promise<any[]>;
+  getCourseLectures: (sectionId: string) => Promise<any[]>;
+  getFeaturedCourses: () => Promise<Course[]>;
 }
 
 const CourseContext = createContext<CourseContextType | undefined>(undefined);
@@ -38,37 +42,176 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [courseProgress, setCourseProgress] = useState<CourseProgress[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Initialize courses from mock data
+  // Fetch all courses on initial load
   useEffect(() => {
-    setCourses(mockCourses);
-    setLoading(false);
+    fetchCourses();
   }, []);
 
-  // Update enrolled courses when user changes
+  // Fetch enrolled courses when user changes
   useEffect(() => {
     if (user) {
-      // In a real app, we'd fetch enrolled courses from the API
-      const userProgress = mockCourseProgress.filter(progress => progress.user_id === user.id);
-      setCourseProgress(userProgress);
-      
-      // Get enrolled courses based on progress
-      const userEnrolledCourses = courses.filter(course => 
-        userProgress.some(progress => progress.course_id === course.id)
-      );
-      setEnrolledCourses(userEnrolledCourses);
+      fetchEnrolledCourses();
     } else {
-      setCourseProgress([]);
       setEnrolledCourses([]);
+      setCourseProgress([]);
     }
-  }, [user, courses]);
+  }, [user]);
 
-  const getCourse = (courseId: string) => {
-    return courses.find(course => course.id === courseId);
+  const fetchCourses = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select(`
+          *,
+          users:instructor_id (first_name, last_name)
+        `)
+        .eq('published', true);
+      
+      if (error) throw error;
+      
+      if (data) {
+        const formattedCourses: Course[] = data.map(course => ({
+          id: course.id,
+          title: course.title,
+          description: course.description,
+          thumbnail_url: course.thumbnail_url,
+          instructor_id: course.instructor_id,
+          instructor_name: `${course.users.first_name} ${course.users.last_name}`,
+          price: course.price || undefined,
+          rating: course.rating || undefined,
+          total_students: course.total_students || undefined,
+          total_reviews: course.total_reviews || undefined,
+          total_lectures: course.total_lectures || undefined,
+          duration: course.duration || undefined,
+          level: course.level,
+          created_at: course.created_at,
+          updated_at: course.updated_at,
+          categories: [course.category_id], // Will be expanded in the future
+        }));
+        
+        setCourses(formattedCourses);
+      }
+    } catch (error: any) {
+      toast.error(`Failed to fetch courses: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchEnrolledCourses = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      // Get enrolled course IDs
+      const { data: enrollments, error: enrollmentError } = await supabase
+        .from('course_enrollments')
+        .select('course_id')
+        .eq('user_id', user.id);
+      
+      if (enrollmentError) throw enrollmentError;
+      
+      if (enrollments && enrollments.length > 0) {
+        const courseIds = enrollments.map(e => e.course_id);
+        
+        // Fetch course details
+        const { data: enrolledCoursesData, error: coursesError } = await supabase
+          .from('courses')
+          .select(`
+            *,
+            users:instructor_id (first_name, last_name)
+          `)
+          .in('id', courseIds);
+        
+        if (coursesError) throw coursesError;
+        
+        if (enrolledCoursesData) {
+          const formattedCourses: Course[] = enrolledCoursesData.map(course => ({
+            id: course.id,
+            title: course.title,
+            description: course.description,
+            thumbnail_url: course.thumbnail_url,
+            instructor_id: course.instructor_id,
+            instructor_name: `${course.users.first_name} ${course.users.last_name}`,
+            price: course.price || undefined,
+            rating: course.rating || undefined,
+            total_students: course.total_students || undefined,
+            total_reviews: course.total_reviews || undefined,
+            total_lectures: course.total_lectures || undefined,
+            duration: course.duration || undefined,
+            level: course.level,
+            created_at: course.created_at,
+            updated_at: course.updated_at,
+            categories: [course.category_id], // Will be expanded in the future
+          }));
+          
+          setEnrolledCourses(formattedCourses);
+          
+          // Fetch course progress
+          const { data: progressData, error: progressError } = await supabase
+            .from('course_progress')
+            .select('*')
+            .in('enrollment_id', enrollments.map(e => e.id));
+          
+          if (progressError) throw progressError;
+          
+          if (progressData) {
+            setCourseProgress(progressData as CourseProgress[]);
+          }
+        }
+      }
+    } catch (error: any) {
+      toast.error(`Failed to fetch enrolled courses: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getCourse = async (courseId: string): Promise<Course | undefined> => {
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select(`
+          *,
+          users:instructor_id (first_name, last_name)
+        `)
+        .eq('id', courseId)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        return {
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          thumbnail_url: data.thumbnail_url,
+          instructor_id: data.instructor_id,
+          instructor_name: `${data.users.first_name} ${data.users.last_name}`,
+          price: data.price || undefined,
+          rating: data.rating || undefined,
+          total_students: data.total_students || undefined,
+          total_reviews: data.total_reviews || undefined,
+          total_lectures: data.total_lectures || undefined,
+          duration: data.duration || undefined,
+          level: data.level,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          categories: [data.category_id], // Will be expanded in the future
+        };
+      }
+      
+      return undefined;
+    } catch (error) {
+      console.error("Error fetching course:", error);
+      return undefined;
+    }
   };
 
   const getCourseProgress = (courseId: string) => {
     if (!user) return undefined;
-    return courseProgress.find(progress => progress.course_id === courseId && progress.user_id === user.id);
+    return courseProgress.find(progress => progress.course_id === courseId);
   };
 
   const enrollInCourse = async (courseId: string) => {
@@ -79,34 +222,47 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Create enrollment record
+      const { data: enrollment, error: enrollmentError } = await supabase
+        .from('course_enrollments')
+        .insert({
+          course_id: courseId,
+          user_id: user.id,
+          enrolled_at: new Date().toISOString()
+        })
+        .select()
+        .single();
       
-      const course = courses.find(c => c.id === courseId);
-      if (!course) {
-        throw new Error("Course not found");
+      if (enrollmentError) throw enrollmentError;
+      
+      // Create progress record
+      if (enrollment) {
+        const { error: progressError } = await supabase
+          .from('course_progress')
+          .insert({
+            enrollment_id: enrollment.id,
+            completed_lectures: [],
+            progress_percentage: 0,
+            updated_at: new Date().toISOString()
+          });
+        
+        if (progressError) throw progressError;
       }
       
-      // Check if already enrolled
-      if (enrolledCourses.some(c => c.id === courseId)) {
-        throw new Error("You are already enrolled in this course");
-      }
-      
-      // Create new progress record
-      const newProgress: CourseProgress = {
+      // Update course enrollment count
+      const { error: updateError } = await supabase.rpc('increment_course_students', {
         course_id: courseId,
-        user_id: user.id,
-        completed_lectures: [],
-        progress_percentage: 0,
-        started_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+        increment_by: 1
+      });
       
-      setCourseProgress([...courseProgress, newProgress]);
-      setEnrolledCourses([...enrolledCourses, course]);
-      toast.success(`Successfully enrolled in "${course.title}"`);
-    } catch (error) {
-      toast.error((error as Error).message);
+      if (updateError) console.error("Failed to update student count:", updateError);
+      
+      // Refresh enrolled courses
+      await fetchEnrolledCourses();
+      
+      toast.success("Successfully enrolled in the course!");
+    } catch (error: any) {
+      toast.error(`Failed to enroll: ${error.message}`);
       throw error;
     } finally {
       setLoading(false);
@@ -120,42 +276,63 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
 
     try {
-      // Find existing progress
-      const existingProgressIndex = courseProgress.findIndex(
-        p => p.course_id === courseId && p.user_id === user.id
-      );
+      // Get enrollment ID
+      const { data: enrollment, error: enrollmentError } = await supabase
+        .from('course_enrollments')
+        .select('id')
+        .eq('course_id', courseId)
+        .eq('user_id', user.id)
+        .single();
       
-      // If no progress record exists, create one
-      if (existingProgressIndex === -1) {
-        const newProgress: CourseProgress = {
-          course_id: courseId,
-          user_id: user.id,
-          completed_lectures: [lectureId],
-          progress_percentage: progressPercentage,
-          last_watched_lecture: lectureId,
-          started_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        
-        setCourseProgress([...courseProgress, newProgress]);
-      } else {
+      if (enrollmentError) throw enrollmentError;
+      
+      if (!enrollment) throw new Error("Not enrolled in this course");
+      
+      // Get current progress
+      const { data: progress, error: progressError } = await supabase
+        .from('course_progress')
+        .select('*')
+        .eq('enrollment_id', enrollment.id)
+        .single();
+      
+      if (progressError && progressError.code !== 'PGRST116') throw progressError;
+      
+      if (progress) {
         // Update existing progress
-        const updatedProgress = [...courseProgress];
-        const currentProgress = updatedProgress[existingProgressIndex];
+        const updatedLectures = progress.completed_lectures.includes(lectureId)
+          ? progress.completed_lectures
+          : [...progress.completed_lectures, lectureId];
         
-        // Add lecture to completed if not already there
-        if (!currentProgress.completed_lectures.includes(lectureId)) {
-          currentProgress.completed_lectures.push(lectureId);
-        }
+        const { error: updateError } = await supabase
+          .from('course_progress')
+          .update({
+            completed_lectures: updatedLectures,
+            progress_percentage: progressPercentage,
+            last_watched_lecture: lectureId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', progress.id);
         
-        currentProgress.progress_percentage = progressPercentage;
-        currentProgress.last_watched_lecture = lectureId;
-        currentProgress.updated_at = new Date().toISOString();
+        if (updateError) throw updateError;
+      } else {
+        // Create new progress record
+        const { error: createError } = await supabase
+          .from('course_progress')
+          .insert({
+            enrollment_id: enrollment.id,
+            completed_lectures: [lectureId],
+            progress_percentage: progressPercentage,
+            last_watched_lecture: lectureId,
+            updated_at: new Date().toISOString()
+          });
         
-        setCourseProgress(updatedProgress);
+        if (createError) throw createError;
       }
-    } catch (error) {
-      toast.error("Failed to update progress");
+      
+      // Refresh progress data
+      await fetchEnrolledCourses();
+    } catch (error: any) {
+      toast.error(`Failed to update progress: ${error.message}`);
       throw error;
     }
   };
@@ -167,17 +344,15 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return courses.filter(course => 
       course.title.toLowerCase().includes(searchTerm) ||
       course.description.toLowerCase().includes(searchTerm) ||
-      course.instructor_name.toLowerCase().includes(searchTerm) ||
-      course.categories?.some(cat => cat.toLowerCase().includes(searchTerm)) ||
-      course.tags?.some(tag => tag.toLowerCase().includes(searchTerm))
+      course.instructor_name.toLowerCase().includes(searchTerm)
     );
   };
 
-  const filterCoursesByCategory = (category: string) => {
-    if (!category || category === "All Categories") return courses;
+  const filterCoursesByCategory = (categoryId: string) => {
+    if (!categoryId || categoryId === "all") return courses;
     
     return courses.filter(course => 
-      course.categories?.includes(category)
+      course.categories?.includes(categoryId)
     );
   };
 
@@ -194,20 +369,37 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const now = new Date().toISOString();
       
-      const newCourse: Course = {
-        ...courseData,
-        id: `course_${Date.now().toString()}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+      const { data, error } = await supabase
+        .from('courses')
+        .insert({
+          title: courseData.title,
+          description: courseData.description,
+          thumbnail_url: courseData.thumbnail_url,
+          instructor_id: user.id,
+          price: courseData.price || null,
+          level: courseData.level || 'all-levels',
+          created_at: now,
+          updated_at: now,
+          published: false,
+          featured: false,
+          total_lectures: courseData.total_lectures || 0,
+          duration: courseData.duration || null,
+          category_id: courseData.categories?.[0] || null
+        })
+        .select()
+        .single();
       
-      setCourses([...courses, newCourse]);
+      if (error) throw error;
+      
+      if (data) {
+        await fetchCourses();
+      }
+      
       toast.success("Course created successfully!");
-    } catch (error) {
-      toast.error("Failed to create course");
+    } catch (error: any) {
+      toast.error(`Failed to create course: ${error.message}`);
       throw error;
     } finally {
       setLoading(false);
@@ -227,31 +419,36 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Check course ownership
+      const { data: course, error: courseError } = await supabase
+        .from('courses')
+        .select('instructor_id')
+        .eq('id', courseId)
+        .single();
       
-      const courseIndex = courses.findIndex(c => c.id === courseId);
-      if (courseIndex === -1) {
-        throw new Error("Course not found");
-      }
-
-      // Only instructors who own the course or admins can update
-      const course = courses[courseIndex];
-      if (user.role === "instructor" && course.instructor_id !== user.id) {
+      if (courseError) throw courseError;
+      
+      if (course && user.role === "instructor" && course.instructor_id !== user.id) {
         throw new Error("You don't have permission to update this course");
       }
       
-      const updatedCourses = [...courses];
-      updatedCourses[courseIndex] = {
-        ...course,
-        ...courseData,
-        updated_at: new Date().toISOString(),
-      };
+      // Update course
+      const { error: updateError } = await supabase
+        .from('courses')
+        .update({
+          ...courseData,
+          updated_at: new Date().toISOString(),
+          category_id: courseData.categories?.[0] || course?.category_id
+        })
+        .eq('id', courseId);
       
-      setCourses(updatedCourses);
+      if (updateError) throw updateError;
+      
+      await fetchCourses();
+      
       toast.success("Course updated successfully!");
-    } catch (error) {
-      toast.error((error as Error).message);
+    } catch (error: any) {
+      toast.error(`Failed to update course: ${error.message}`);
       throw error;
     } finally {
       setLoading(false);
@@ -271,28 +468,127 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Check course ownership
+      const { data: course, error: courseError } = await supabase
+        .from('courses')
+        .select('instructor_id')
+        .eq('id', courseId)
+        .single();
       
-      const courseIndex = courses.findIndex(c => c.id === courseId);
-      if (courseIndex === -1) {
-        throw new Error("Course not found");
-      }
-
-      // Only instructors who own the course or admins can delete
-      const course = courses[courseIndex];
-      if (user.role === "instructor" && course.instructor_id !== user.id) {
+      if (courseError) throw courseError;
+      
+      if (course && user.role === "instructor" && course.instructor_id !== user.id) {
         throw new Error("You don't have permission to delete this course");
       }
       
-      const updatedCourses = courses.filter(c => c.id !== courseId);
-      setCourses(updatedCourses);
+      // Delete course
+      const { error: deleteError } = await supabase
+        .from('courses')
+        .delete()
+        .eq('id', courseId);
+      
+      if (deleteError) throw deleteError;
+      
+      await fetchCourses();
+      
       toast.success("Course deleted successfully!");
-    } catch (error) {
-      toast.error((error as Error).message);
+    } catch (error: any) {
+      toast.error(`Failed to delete course: ${error.message}`);
       throw error;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCourseCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      return [];
+    }
+  };
+
+  const getCourseSections = async (courseId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('course_sections')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('order');
+      
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching course sections:", error);
+      return [];
+    }
+  };
+
+  const getCourseLectures = async (sectionId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('course_lectures')
+        .select('*')
+        .eq('section_id', sectionId)
+        .order('order');
+      
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching course lectures:", error);
+      return [];
+    }
+  };
+
+  const getFeaturedCourses = async (): Promise<Course[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select(`
+          *,
+          users:instructor_id (first_name, last_name)
+        `)
+        .eq('featured', true)
+        .eq('published', true)
+        .limit(5);
+      
+      if (error) throw error;
+      
+      if (data) {
+        return data.map(course => ({
+          id: course.id,
+          title: course.title,
+          description: course.description,
+          thumbnail_url: course.thumbnail_url,
+          instructor_id: course.instructor_id,
+          instructor_name: `${course.users.first_name} ${course.users.last_name}`,
+          price: course.price || undefined,
+          rating: course.rating || undefined,
+          total_students: course.total_students || undefined,
+          total_reviews: course.total_reviews || undefined,
+          total_lectures: course.total_lectures || undefined,
+          duration: course.duration || undefined,
+          level: course.level,
+          created_at: course.created_at,
+          updated_at: course.updated_at,
+          categories: [course.category_id], // Will be expanded in the future
+        }));
+      }
+      
+      return [];
+    } catch (error) {
+      console.error("Error fetching featured courses:", error);
+      return [];
     }
   };
 
@@ -311,7 +607,11 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         filterCoursesByCategory,
         addCourse,
         updateCourse,
-        deleteCourse
+        deleteCourse,
+        fetchCourseCategories,
+        getCourseSections,
+        getCourseLectures,
+        getFeaturedCourses
       }}
     >
       {children}

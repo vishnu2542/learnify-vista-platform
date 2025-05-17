@@ -1,7 +1,7 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from "react";
 import { toast } from "sonner";
-import { mockUsers } from "../data/mockData";
+import { supabase } from "@/lib/supabase";
 import { User, UserRole } from "../types";
 
 interface AuthContextType {
@@ -27,98 +27,151 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize auth state from local storage
+  // Initialize auth state from Supabase session
   useEffect(() => {
-    const storedUser = localStorage.getItem("lms_user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (userData) {
+          setUser({
+            id: userData.id,
+            email: userData.email,
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            role: userData.role as UserRole,
+            avatar_url: userData.avatar_url || undefined,
+            created_at: userData.created_at
+          });
+        }
+      }
+      
+      setLoading(false);
+    };
+
+    getSession();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (session) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (userData) {
+            setUser({
+              id: userData.id,
+              email: userData.email,
+              first_name: userData.first_name,
+              last_name: userData.last_name,
+              role: userData.role as UserRole,
+              avatar_url: userData.avatar_url || undefined,
+              created_at: userData.created_at
+            });
+          }
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Mock sign in function
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
-      // Find user with matching email
-      const foundUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (error) throw error;
       
-      if (foundUser) {
-        // In a real app, we'd verify the password here
-        setUser(foundUser);
-        localStorage.setItem("lms_user", JSON.stringify(foundUser));
-        toast.success("Successfully signed in!");
-      } else {
-        throw new Error("Invalid email or password");
-      }
-    } catch (error) {
-      toast.error((error as Error).message);
+      toast.success("Successfully signed in!");
+    } catch (error: any) {
+      toast.error(error.message);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock sign up function
   const signUp = async (email: string, firstName: string, lastName: string, password: string, role: UserRole) => {
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+          }
+        }
+      });
       
-      // Check if user with this email already exists
-      const existingUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (error) throw error;
       
-      if (existingUser) {
-        throw new Error("User with this email already exists");
+      if (data.user) {
+        await supabase
+          .from('users')
+          .insert({
+            id: data.user.id,
+            email,
+            first_name: firstName,
+            last_name: lastName,
+            role,
+            created_at: new Date().toISOString(),
+          });
       }
       
-      // Create new user
-      const newUser: User = {
-        id: `user_${Date.now().toString()}`,
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        role,
-        created_at: new Date().toISOString(),
-      };
-      
-      setUser(newUser);
-      localStorage.setItem("lms_user", JSON.stringify(newUser));
-      toast.success("Account created successfully!");
-    } catch (error) {
-      toast.error((error as Error).message);
+      toast.success("Account created successfully! Please check your email for verification.");
+    } catch (error: any) {
+      toast.error(error.message);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  // Sign out function
-  const signOut = () => {
-    setUser(null);
-    localStorage.removeItem("lms_user");
-    toast.success("You have been signed out");
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      toast.success("You have been signed out");
+    } catch (error: any) {
+      toast.error(error.message);
+    }
   };
 
-  // Update profile function
   const updateProfile = async (updatedUser: Partial<User>) => {
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       if (!user) throw new Error("No user is signed in");
       
-      const newUserData = { ...user, ...updatedUser };
-      setUser(newUserData);
-      localStorage.setItem("lms_user", JSON.stringify(newUserData));
+      const { error } = await supabase
+        .from('users')
+        .update(updatedUser)
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      setUser({ ...user, ...updatedUser });
       toast.success("Profile updated successfully!");
-    } catch (error) {
-      toast.error((error as Error).message);
+    } catch (error: any) {
+      toast.error(error.message);
       throw error;
     } finally {
       setLoading(false);

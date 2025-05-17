@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +13,7 @@ import Index from "./pages/Index";
 import Explore from "./pages/Explore";
 import CourseDetail from "./pages/CourseDetail";
 import Dashboard from "./pages/Dashboard";
+import CourseLearning from "./pages/CourseLearning";
 import SignIn from "./pages/Auth/SignIn";
 import SignUp from "./pages/Auth/SignUp";
 import NotFound from "./pages/NotFound";
@@ -31,6 +33,8 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/explore" element={<Explore />} />
                 <Route path="/course/:courseId" element={<CourseDetail />} />
+                <Route path="/course/:courseId/learn" element={<CourseLearning />} />
+                <Route path="/course/:courseId/learn/:lectureId" element={<CourseLearning />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/my-courses" element={<Dashboard />} />
                 {/* Other protected routes would go here */}
