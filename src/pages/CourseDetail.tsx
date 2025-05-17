@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,9 +38,26 @@ const CourseDetail = () => {
   } = useCourses();
   const [enrolling, setEnrolling] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [course, setCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState(true);
   
-  // Find the course
-  const course = getCourse(courseId as string);
+  // Fetch the course data
+  useEffect(() => {
+    const fetchCourseData = async () => {
+      if (!courseId) return;
+      
+      try {
+        const courseData = await getCourse(courseId);
+        setCourse(courseData);
+      } catch (error) {
+        console.error("Error fetching course:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchCourseData();
+  }, [courseId, getCourse]);
   
   // Check if user is enrolled
   const isEnrolled = enrolledCourses.some(c => c.id === courseId);
@@ -49,8 +66,16 @@ const CourseDetail = () => {
   const progress = getCourseProgress(courseId as string);
   
   // Find instructor data
-  const instructor = mockUsers.find(u => u.id === course?.instructor_id);
+  const instructor = course?.instructor_id ? mockUsers.find(u => u.id === course.instructor_id) : undefined;
   
+  if (loading) {
+    return (
+      <div className="container mx-auto max-w-7xl px-4 py-16">
+        <p className="text-muted-foreground">Loading course details...</p>
+      </div>
+    );
+  }
+
   if (!course) {
     return (
       <div className="container mx-auto max-w-7xl px-4 py-16">

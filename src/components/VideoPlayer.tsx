@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { cn } from "@/lib/utils";
 
@@ -7,9 +7,10 @@ interface VideoPlayerProps {
   videoUrl: string;
   title?: string;
   className?: string;
+  onComplete?: () => void;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, title, className }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, title, className, onComplete }) => {
   // Helper function to extract YouTube video ID from URL
   const getYoutubeEmbedUrl = (url: string): string => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -49,6 +50,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, title, className })
       return url;
     }
   };
+
+  // Simulate video completion after a timeout (for demo purposes)
+  useEffect(() => {
+    if (onComplete) {
+      // In a real application, you'd listen for actual video completion events
+      const timer = setTimeout(() => {
+        onComplete();
+      }, 15000); // 15 seconds for demo
+      
+      return () => clearTimeout(timer);
+    }
+  }, [onComplete]);
 
   const embedUrl = getEmbedUrl(videoUrl);
 

@@ -284,7 +284,8 @@ const CourseLearning = () => {
                 <div className="bg-black rounded-lg overflow-hidden mb-4">
                   {activeLecture.video_url ? (
                     <VideoPlayer 
-                      url={activeLecture.video_url}
+                      videoUrl={activeLecture.video_url}
+                      title={activeLecture.title}
                       onComplete={handleVideoComplete}
                     />
                   ) : (

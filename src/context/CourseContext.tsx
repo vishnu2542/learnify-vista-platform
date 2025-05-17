@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -10,7 +9,7 @@ interface CourseContextType {
   enrolledCourses: Course[];
   courseProgress: CourseProgress[];
   loading: boolean;
-  getCourse: (courseId: string) => Promise<Course | undefined>;
+  getCourse: (courseId: string) => Promise<Course | null>;
   getCourseProgress: (courseId: string) => CourseProgress | undefined;
   enrollInCourse: (courseId: string) => Promise<void>;
   updateCourseProgress: (courseId: string, lectureId: string, progressPercentage: number) => Promise<void>;
@@ -107,7 +106,7 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       // Get enrolled course IDs
       const { data: enrollments, error: enrollmentError } = await supabase
         .from('course_enrollments')
-        .select('course_id')
+        .select('id, course_id')  // Make sure to select the id field
         .eq('user_id', user.id);
       
       if (enrollmentError) throw enrollmentError;
@@ -168,7 +167,7 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
-  const getCourse = async (courseId: string): Promise<Course | undefined> => {
+  const getCourse = async (courseId: string): Promise<Course | null> => {
     try {
       const { data, error } = await supabase
         .from('courses')
@@ -202,10 +201,10 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         };
       }
       
-      return undefined;
+      return null;
     } catch (error) {
       console.error("Error fetching course:", error);
-      return undefined;
+      return null;
     }
   };
 
@@ -422,7 +421,7 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       // Check course ownership
       const { data: course, error: courseError } = await supabase
         .from('courses')
-        .select('instructor_id')
+        .select('instructor_id, category_id')  // Make sure to include category_id
         .eq('id', courseId)
         .single();
       
