@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Form,
   FormControl,
@@ -18,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserRole } from "@/types";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 const formSchema = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters" }),
@@ -35,6 +37,7 @@ const SignUp = () => {
   const { signUp } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const supabaseConfigured = isSupabaseConfigured();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,6 +52,11 @@ const SignUp = () => {
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!supabaseConfigured) {
+      console.error("Supabase not configured correctly");
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -86,6 +94,14 @@ const SignUp = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {!supabaseConfigured && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>
+                Supabase connection is not configured properly. Please check your environment variables.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -190,7 +206,11 @@ const SignUp = () => {
                 )}
               />
               
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isSubmitting || !supabaseConfigured}
+              >
                 {isSubmitting ? "Creating Account..." : "Create Account"}
               </Button>
             </form>
