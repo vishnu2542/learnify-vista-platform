@@ -14,3 +14,21 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 export const isSupabaseConfigured = () => {
   return Boolean(supabaseUrl && supabaseAnonKey);
 };
+
+// Helper function to execute raw SQL (for database initialization)
+supabase.query = async (sql: string) => {
+  try {
+    const { data, error } = await supabase.rpc('exec_sql', { sql_query: sql });
+    if (error) {
+      // If exec_sql function doesn't exist, we'll handle it silently
+      // This would happen before our database is fully set up
+      console.log("SQL execution function not available yet");
+      return { data: null, error };
+    }
+    return { data, error: null };
+  } catch (error: any) {
+    // Silently handle errors during initialization
+    console.log("Error executing SQL:", error);
+    return { data: null, error };
+  }
+};

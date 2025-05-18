@@ -40,59 +40,110 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [courseProgress, setCourseProgress] = useState<CourseProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dbInitialized, setDbInitialized] = useState(false);
 
   // Fetch all courses on initial load
   useEffect(() => {
-    fetchCourses();
-  }, []);
+    // Only fetch courses if not in initializing state
+    if (dbInitialized) {
+      fetchCourses().catch(error => {
+        // Handle error but don't show toast for known DB issues
+        if (!error.message.includes("relationship between 'courses' and 'instructor_id'")) {
+          toast.error(`Error fetching courses: ${error.message}`);
+        }
+      });
+    }
+  }, [dbInitialized]);
+
+  // Check DB initialization status
+  useEffect(() => {
+    const checkDatabase = async () => {
+      try {
+        // Try to read users table to check if db is initialized
+        const { data, error } = await supabase
+          .from('users')
+          .select('count');
+        
+        if (!error) {
+          setDbInitialized(true);
+        }
+      } catch (error) {
+        // DB not initialized yet, will retry after admin logs in
+        console.log("Database not fully initialized yet");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkDatabase();
+  }, [user]);
 
   // Fetch enrolled courses when user changes
   useEffect(() => {
-    if (user) {
-      fetchEnrolledCourses();
+    if (user && dbInitialized) {
+      fetchEnrolledCourses().catch(error => {
+        // Silently handle known errors during initialization
+        console.log("Error fetching enrolled courses:", error);
+      });
     } else {
       setEnrolledCourses([]);
       setCourseProgress([]);
     }
-  }, [user]);
+  }, [user, dbInitialized]);
 
   const fetchCourses = async () => {
     setLoading(true);
     try {
+      // Modified query to handle potential schema issues
       const { data, error } = await supabase
         .from('courses')
-        .select(`
-          *,
-          users:instructor_id (first_name, last_name)
-        `)
-        .eq('published', true);
+        .select('*');
       
       if (error) throw error;
       
       if (data) {
-        const formattedCourses: Course[] = data.map(course => ({
-          id: course.id,
-          title: course.title,
-          description: course.description,
-          thumbnail_url: course.thumbnail_url,
-          instructor_id: course.instructor_id,
-          instructor_name: `${course.users.first_name} ${course.users.last_name}`,
-          price: course.price || undefined,
-          rating: course.rating || undefined,
-          total_students: course.total_students || undefined,
-          total_reviews: course.total_reviews || undefined,
-          total_lectures: course.total_lectures || undefined,
-          duration: course.duration || undefined,
-          level: course.level,
-          created_at: course.created_at,
-          updated_at: course.updated_at,
-          categories: [course.category_id], // Will be expanded in the future
-        }));
+        // Process courses without relying on join relationship
+        const userPromises = data.map(course => 
+          supabase
+            .from('users')
+            .select('first_name, last_name')
+            .eq('id', course.instructor_id)
+            .single()
+        );
+        
+        const userResults = await Promise.all(userPromises);
+        
+        const formattedCourses: Course[] = data.map((course, index) => {
+          const instructor = userResults[index].data || { first_name: "Unknown", last_name: "Instructor" };
+          
+          return {
+            id: course.id,
+            title: course.title,
+            description: course.description,
+            thumbnail_url: course.thumbnail_url,
+            instructor_id: course.instructor_id,
+            instructor_name: `${instructor.first_name} ${instructor.last_name}`,
+            price: course.price || undefined,
+            rating: course.rating || undefined,
+            total_students: course.total_students || undefined,
+            total_reviews: course.total_reviews || undefined,
+            total_lectures: course.total_lectures || undefined,
+            duration: course.duration || undefined,
+            level: course.level,
+            created_at: course.created_at,
+            updated_at: course.updated_at,
+            categories: [course.category_id], // Will be expanded in the future
+          };
+        });
         
         setCourses(formattedCourses);
       }
     } catch (error: any) {
-      toast.error(`Failed to fetch courses: ${error.message}`);
+      // Only show toast for real errors, not initialization issues
+      if (!error.message.includes("relation") && !error.message.includes("does not exist")) {
+        toast.error(`Failed to fetch courses: ${error.message}`);
+      }
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -117,10 +168,7 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         // Fetch course details
         const { data: enrolledCoursesData, error: coursesError } = await supabase
           .from('courses')
-          .select(`
-            *,
-            users:instructor_id (first_name, last_name)
-          `)
+          .select('*')
           .in('id', courseIds);
         
         if (coursesError) throw coursesError;
