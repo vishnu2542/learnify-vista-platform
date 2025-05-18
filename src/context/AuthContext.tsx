@@ -92,6 +92,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
+      // For demo accounts, use hardcoded credentials
+      if (
+        (email === "student@example.com" && password === "password123") ||
+        (email === "instructor@example.com" && password === "password123") ||
+        (email === "admin@example.com" && password === "password123")
+      ) {
+        // Determine role based on email
+        let role: UserRole = "student";
+        if (email.includes("instructor")) role = "instructor";
+        if (email.includes("admin")) role = "admin";
+        
+        // Create a mock user for demo purposes
+        const demoUser: User = {
+          id: `demo-${role}-${Date.now()}`,
+          email: email,
+          first_name: role.charAt(0).toUpperCase() + role.slice(1),
+          last_name: "User",
+          role: role,
+          created_at: new Date().toISOString()
+        };
+        
+        setUser(demoUser);
+        toast.success("Successfully signed in with demo account!");
+        return;
+      }
+
+      // Regular Supabase authentication for non-demo accounts
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,

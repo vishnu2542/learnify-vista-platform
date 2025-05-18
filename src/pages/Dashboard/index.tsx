@@ -36,7 +36,7 @@ const Dashboard = () => {
 
   if (!user) {
     console.log("No user found, redirecting to signin");
-    return <Navigate to="/signin" />;
+    return <Navigate to="/signin" state={{ from: location.pathname }} />;
   }
 
   // Render dashboard based on user role
