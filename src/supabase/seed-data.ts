@@ -64,14 +64,15 @@ export const seedDatabase = async () => {
         });
       }
     } else if (adminData?.user) {
-      await supabase.from('users').insert({
+      // Fix: Remove the onConflict and use insert with upsert option
+      await supabase.from('users').upsert({
         id: adminData.user.id,
         email: adminEmail,
         first_name: 'Admin',
         last_name: 'User',
         role: 'admin',
         created_at: new Date().toISOString()
-      }).onConflict('id').ignore();
+      });
     }
     
     // Create instructor users
@@ -135,14 +136,15 @@ export const seedDatabase = async () => {
         
         instructorIds.push(fakeId);
       } else if (instructorData?.user) {
-        await supabase.from('users').insert({
+        // Fix: Remove the onConflict and use upsert instead
+        await supabase.from('users').upsert({
           id: instructorData.user.id,
           email: instructor.email,
           first_name: instructor.first_name,
           last_name: instructor.last_name,
           role: 'instructor',
           created_at: new Date().toISOString()
-        }).onConflict('id').ignore();
+        });
         
         instructorIds.push(instructorData.user.id);
       }
@@ -329,49 +331,61 @@ export const seedDatabase = async () => {
 const createDatabaseStructure = async () => {
   console.log("Creating database structure...");
   
-  // Create users table
-  await supabase.rpc('create_users_table_if_not_exists').catch(err => {
+  // Create users table - Fix: Remove .catch and use try/catch instead
+  try {
+    await supabase.rpc('create_users_table_if_not_exists');
+  } catch (err) {
     console.log("Error or RPC not available:", err);
     
     // Try direct SQL as fallback (only works if proper permissions)
-    return supabase.from('users').insert({
-      email: 'test@test.com',
-      first_name: 'Test',
-      last_name: 'User'
-    }).select();
-  });
+    try {
+      await supabase.from('users').insert({
+        email: 'test@test.com',
+        first_name: 'Test',
+        last_name: 'User'
+      }).select();
+    } catch (insertErr) {
+      console.log("Could not create users table:", insertErr);
+    }
+  }
   
-  // Create categories table
-  await supabase.from('categories').select('count').catch(async () => {
+  // Fix: Replace .catch with try/catch for all table checks
+  try {
+    await supabase.from('categories').select('count');
+  } catch (err) {
     console.log("Creating categories table...");
     // This will fail if table doesn't exist, which is expected
     // The backend will handle table creation based on RLS policies
-  });
+  }
   
-  // Create courses table 
-  await supabase.from('courses').select('count').catch(async () => {
+  try {
+    await supabase.from('courses').select('count');
+  } catch (err) {
     console.log("Creating courses table...");
     // This will fail if table doesn't exist, which is expected
     // The backend will handle table creation based on RLS policies
-  });
+  }
   
-  // Create course_sections table
-  await supabase.from('course_sections').select('count').catch(async () => {
+  try {
+    await supabase.from('course_sections').select('count');
+  } catch (err) {
     console.log("Creating course_sections table...");
     // This will fail if table doesn't exist, which is expected
-  });
+  }
   
-  // Create course_lectures table
-  await supabase.from('course_lectures').select('count').catch(async () => {
+  try {
+    await supabase.from('course_lectures').select('count');
+  } catch (err) {
     console.log("Creating course_lectures table...");
     // This will fail if table doesn't exist, which is expected
-  });
+  }
   
-  // Create course_enrollments table
-  await supabase.from('course_enrollments').select('count').catch(async () => {
+  try {
+    await supabase.from('course_enrollments').select('count');
+  } catch (err) {
     console.log("Creating course_enrollments table...");
     // This will fail if table doesn't exist, which is expected
-  });
+  }
   
   console.log("Database structure setup completed");
 };
