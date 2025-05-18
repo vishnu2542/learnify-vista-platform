@@ -24,9 +24,10 @@ const SupabaseStatus = () => {
       setStatus('loading');
       
       // Simple query to test connection
-      const { error } = await supabase.from('users').select('count');
+      const { data, error } = await supabase.from('users').select('count');
       
       if (error) {
+        console.log('Connection test error:', error);
         throw error;
       }
       
@@ -40,17 +41,28 @@ const SupabaseStatus = () => {
 
   const fetchStats = async () => {
     try {
-      // Get table count
-      const { count: tableCountResult } = await supabase.rpc('get_table_count');
-      setTableCount(tableCountResult || 0);
+      let tables = 0;
+
+      // Try to check for tables we know should exist
+      const tableNames = ['users', 'courses', 'categories', 'course_sections', 'course_lectures'];
+      for (const table of tableNames) {
+        try {
+          const { error } = await supabase.from(table).select('count').limit(1);
+          if (!error) tables++;
+        } catch (e) {
+          console.log(`Table ${table} may not exist yet`);
+        }
+      }
+
+      setTableCount(tables);
       
       // Get user count
-      const { count: userCountResult } = await supabase.from('users').select('*', { count: 'exact', head: true });
-      setUserCount(userCountResult);
+      const { count: userCountResult, error: userError } = await supabase.from('users').select('*', { count: 'exact', head: true });
+      if (!userError) setUserCount(userCountResult);
       
       // Get course count
-      const { count: courseCountResult } = await supabase.from('courses').select('*', { count: 'exact', head: true });
-      setCourseCount(courseCountResult);
+      const { count: courseCountResult, error: courseError } = await supabase.from('courses').select('*', { count: 'exact', head: true });
+      if (!courseError) setCourseCount(courseCountResult);
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -60,7 +72,6 @@ const SupabaseStatus = () => {
     try {
       setSeeding(true);
       await seedDatabase();
-      toast.success("Database seeded successfully!");
       await fetchStats();
     } catch (error) {
       console.error('Error seeding database:', error);
@@ -127,7 +138,7 @@ const SupabaseStatus = () => {
         <Button variant="outline" onClick={checkConnection}>
           Refresh Status
         </Button>
-        <Button onClick={handleSeedDatabase} disabled={seeding || status !== 'connected'}>
+        <Button onClick={handleSeedDatabase} disabled={seeding}>
           {seeding ? "Seeding..." : "Seed Database"}
         </Button>
       </CardFooter>

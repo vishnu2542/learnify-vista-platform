@@ -1,22 +1,14 @@
 
-import React, { useEffect } from "react";
+import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import StudentDashboard from "./StudentDashboard";
 import InstructorDashboard from "./InstructorDashboard";
 import AdminDashboard from "./AdminDashboard";
-import { seedDatabase } from "@/supabase/seed-data";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
   
-  // Seed database on first load (this would be removed in production)
-  useEffect(() => {
-    if (user && user.role === 'admin') {
-      seedDatabase().catch(console.error);
-    }
-  }, [user]);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -38,7 +30,13 @@ const Dashboard = () => {
     case "admin":
       return <AdminDashboard />;
     default:
-      return <Navigate to="/" />;
+      return (
+        <div className="container mx-auto max-w-7xl p-4 md:p-6">
+          <h1 className="text-3xl font-bold mb-4">Welcome to EduFlow</h1>
+          <p className="mb-4">Your role ({user.role || "unknown"}) doesn't have a specific dashboard yet.</p>
+          <p>Please contact an administrator for assistance.</p>
+        </div>
+      );
   }
 };
 

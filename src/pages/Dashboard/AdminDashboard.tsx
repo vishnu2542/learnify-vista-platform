@@ -1,14 +1,34 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, BookOpen, Award, Bell, BarChart3 } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { Link } from "react-router-dom";
 import SupabaseStatus from "@/components/SupabaseStatus";
+import AdminStats from "@/components/AdminStats";
 import { useAuth } from "@/context/AuthContext";
+import { seedDatabase } from "@/supabase/seed-data";
+import { toast } from "sonner";
 
 const AdminDashboard = () => {
   const { user } = useAuth();
+  
+  useEffect(() => {
+    // Seed database on first load for admin user
+    async function initializeData() {
+      try {
+        if (user && user.role === 'admin') {
+          console.log("Admin user detected, checking if database needs seeding...");
+          await seedDatabase();
+        }
+      } catch (error) {
+        console.error("Error initializing data:", error);
+        toast.error("Failed to initialize database data");
+      }
+    }
+    
+    initializeData();
+  }, [user]);
 
   return (
     <div className="container mx-auto max-w-7xl p-4 md:p-6">
@@ -19,63 +39,7 @@ const AdminDashboard = () => {
         </p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center">
-              <div className="rounded-full p-3 mr-4 bg-primary/10">
-                <Users className="h-6 w-6 text-primary"/>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Total Users</p>
-                <p className="text-3xl font-bold">1,234</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center">
-              <div className="rounded-full p-3 mr-4 bg-primary/10">
-                <BookOpen className="h-6 w-6 text-primary"/>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Courses</p>
-                <p className="text-3xl font-bold">57</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center">
-              <div className="rounded-full p-3 mr-4 bg-primary/10">
-                <Award className="h-6 w-6 text-primary"/>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Enrollments</p>
-                <p className="text-3xl font-bold">876</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center">
-              <div className="rounded-full p-3 mr-4 bg-primary/10">
-                <Bell className="h-6 w-6 text-primary"/>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Notifications</p>
-                <p className="text-3xl font-bold">12</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <AdminStats />
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
