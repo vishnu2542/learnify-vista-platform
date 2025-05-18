@@ -7,7 +7,7 @@ import InstructorDashboard from "./InstructorDashboard";
 import AdminDashboard from "./AdminDashboard";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { supabase, executeSQL } from "@/lib/supabase";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
@@ -28,23 +28,25 @@ const Dashboard = () => {
       
       try {
         // Create users table
-        await supabase.rpc('create_users_table_if_not_exists').catch(() => {
-          // Create users table manually if RPC doesn't exist
-          return supabase.query(`
-            CREATE TABLE IF NOT EXISTS public.users (
-              id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-              email TEXT UNIQUE NOT NULL,
-              first_name TEXT NOT NULL,
-              last_name TEXT NOT NULL,
-              avatar_url TEXT,
-              role TEXT NOT NULL CHECK (role IN ('student', 'instructor', 'admin')),
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            );
-          `);
+        await supabase.rpc('create_users_table_if_not_exists').then(response => {
+          if (response.error) {
+            // Create users table manually if RPC doesn't exist
+            return executeSQL(`
+              CREATE TABLE IF NOT EXISTS public.users (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                email TEXT UNIQUE NOT NULL,
+                first_name TEXT NOT NULL,
+                last_name TEXT NOT NULL,
+                avatar_url TEXT,
+                role TEXT NOT NULL CHECK (role IN ('student', 'instructor', 'admin')),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+              );
+            `);
+          }
         });
         
         // Create courses table with proper foreign key
-        await supabase.query(`
+        await executeSQL(`
           CREATE TABLE IF NOT EXISTS public.courses (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             title TEXT NOT NULL,
@@ -67,7 +69,7 @@ const Dashboard = () => {
         `);
         
         // Create categories table
-        await supabase.query(`
+        await executeSQL(`
           CREATE TABLE IF NOT EXISTS public.categories (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             name TEXT UNIQUE NOT NULL,
@@ -76,7 +78,7 @@ const Dashboard = () => {
         `);
 
         // Create course_sections table
-        await supabase.query(`
+        await executeSQL(`
           CREATE TABLE IF NOT EXISTS public.course_sections (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             course_id UUID NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
@@ -87,7 +89,7 @@ const Dashboard = () => {
         `);
 
         // Create course_lectures table
-        await supabase.query(`
+        await executeSQL(`
           CREATE TABLE IF NOT EXISTS public.course_lectures (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             section_id UUID NOT NULL REFERENCES public.course_sections(id) ON DELETE CASCADE,
@@ -101,7 +103,7 @@ const Dashboard = () => {
         `);
 
         // Create course_enrollments table
-        await supabase.query(`
+        await executeSQL(`
           CREATE TABLE IF NOT EXISTS public.course_enrollments (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             course_id UUID NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
@@ -113,7 +115,7 @@ const Dashboard = () => {
         `);
 
         // Create course_progress table
-        await supabase.query(`
+        await executeSQL(`
           CREATE TABLE IF NOT EXISTS public.course_progress (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             enrollment_id UUID NOT NULL REFERENCES public.course_enrollments(id) ON DELETE CASCADE,
@@ -126,8 +128,43 @@ const Dashboard = () => {
           );
         `);
         
+        // Create shopping_cart table
+        await executeSQL(`
+          CREATE TABLE IF NOT EXISTS public.shopping_cart (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+            course_id UUID NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
+            added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            UNIQUE(user_id, course_id)
+          );
+        `);
+        
+        // Create orders table
+        await executeSQL(`
+          CREATE TABLE IF NOT EXISTS public.orders (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+            total_amount NUMERIC NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('pending', 'completed', 'cancelled', 'refunded')),
+            payment_method TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+        `);
+        
+        // Create order_items table
+        await executeSQL(`
+          CREATE TABLE IF NOT EXISTS public.order_items (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            order_id UUID NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+            course_id UUID NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
+            price NUMERIC NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+        `);
+        
         // Create function to increment course students
-        await supabase.query(`
+        await executeSQL(`
           CREATE OR REPLACE FUNCTION increment_course_students(course_id UUID, increment_by INTEGER)
           RETURNS VOID AS $$
           BEGIN

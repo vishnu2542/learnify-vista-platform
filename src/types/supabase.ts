@@ -55,6 +55,9 @@ export interface Database {
           total_lectures: number;
           duration: string | null;
           category_id: string;
+          total_students: number;
+          rating: number;
+          total_reviews: number;
         };
         Insert: {
           id?: string;
@@ -71,6 +74,9 @@ export interface Database {
           total_lectures?: number;
           duration?: string | null;
           category_id: string;
+          total_students?: number;
+          rating?: number;
+          total_reviews?: number;
         };
         Update: {
           id?: string;
@@ -87,6 +93,9 @@ export interface Database {
           total_lectures?: number;
           duration?: string | null;
           category_id?: string;
+          total_students?: number;
+          rating?: number;
+          total_reviews?: number;
         };
       };
       categories: {
@@ -192,6 +201,8 @@ export interface Database {
           progress_percentage: number;
           last_watched_lecture: string | null;
           updated_at: string;
+          course_id: string;
+          user_id: string;
         };
         Insert: {
           id?: string;
@@ -200,6 +211,8 @@ export interface Database {
           progress_percentage?: number;
           last_watched_lecture?: string | null;
           updated_at?: string;
+          course_id: string;
+          user_id: string;
         };
         Update: {
           id?: string;
@@ -208,6 +221,8 @@ export interface Database {
           progress_percentage?: number;
           last_watched_lecture?: string | null;
           updated_at?: string;
+          course_id?: string;
+          user_id?: string;
         };
       };
       course_materials: {
@@ -303,6 +318,78 @@ export interface Database {
           options?: Json | null;
           correct_answer?: Json;
           explanation?: string | null;
+          created_at?: string;
+        };
+      };
+      shopping_cart: {
+        Row: {
+          id: string;
+          user_id: string;
+          course_id: string;
+          added_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          course_id: string;
+          added_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          course_id?: string;
+          added_at?: string;
+        };
+      };
+      orders: {
+        Row: {
+          id: string;
+          user_id: string;
+          total_amount: number;
+          status: 'pending' | 'completed' | 'cancelled' | 'refunded';
+          payment_method: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          total_amount: number;
+          status?: 'pending' | 'completed' | 'cancelled' | 'refunded';
+          payment_method?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          total_amount?: number;
+          status?: 'pending' | 'completed' | 'cancelled' | 'refunded';
+          payment_method?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      order_items: {
+        Row: {
+          id: string;
+          order_id: string;
+          course_id: string;
+          price: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          course_id: string;
+          price: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          course_id?: string;
+          price?: number;
           created_at?: string;
         };
       };

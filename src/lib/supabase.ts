@@ -16,15 +16,41 @@ export const isSupabaseConfigured = () => {
 };
 
 // Helper function to execute raw SQL (for database initialization)
-supabase.query = async (sql: string) => {
+export const executeSQL = async (sql: string) => {
   try {
+    // Using the rpc method to execute SQL
     const { data, error } = await supabase.rpc('exec_sql', { sql_query: sql });
+    
     if (error) {
-      // If exec_sql function doesn't exist, we'll handle it silently
-      // This would happen before our database is fully set up
-      console.log("SQL execution function not available yet");
-      return { data: null, error };
+      // If exec_sql function doesn't exist, handle the error
+      console.log("SQL execution function not available yet:", error.message);
+      
+      // Try direct SQL execution through the REST API as fallback
+      try {
+        console.log("Attempting direct SQL execution...");
+        // Note: This is a simplified approach and may not work in all Supabase environments
+        const response = await fetch(`${supabaseUrl}/rest/v1/rpc/exec_sql`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey,
+            'Authorization': `Bearer ${supabaseAnonKey}`
+          },
+          body: JSON.stringify({ sql_query: sql })
+        });
+        
+        if (!response.ok) {
+          return { data: null, error: { message: "Failed to execute SQL directly" } };
+        }
+        
+        const result = await response.json();
+        return { data: result, error: null };
+      } catch (directError) {
+        console.error("Error executing SQL directly:", directError);
+        return { data: null, error };
+      }
     }
+    
     return { data, error: null };
   } catch (error: any) {
     // Silently handle errors during initialization

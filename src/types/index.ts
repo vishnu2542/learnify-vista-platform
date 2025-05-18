@@ -125,3 +125,42 @@ export interface Notification {
   read: boolean;
   created_at: string;
 }
+
+export interface CartItem {
+  id: string;
+  user_id: string;
+  course_id: string;
+  course: Course;
+  added_at: string;
+}
+
+export interface Order {
+  id: string;
+  user_id: string;
+  total_amount: number;
+  status: "pending" | "completed" | "cancelled" | "refunded";
+  payment_method?: string;
+  created_at: string;
+  updated_at: string;
+  items?: OrderItem[];
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  course_id: string;
+  course?: Course;
+  price: number;
+  created_at: string;
+}
+
+export interface AdminStats {
+  userCount: number;
+  courseCount: number;
+  enrollmentCount: number;
+  revenueTotal?: number;
+  userTrend?: number;
+  courseTrend?: number;
+  enrollmentTrend?: number;
+  revenueTrend?: number;
+}
