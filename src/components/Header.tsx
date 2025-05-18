@@ -1,168 +1,151 @@
 
-import React from 'react'
-import { Link } from 'react-router-dom'
-import { 
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuIndicator,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu"
-import { cn } from '@/lib/utils'
-import { Button } from './ui/button'
-import { useAuth } from '@/context/AuthContext'
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from './ui/dropdown-menu'
-import ShoppingCart from './ShoppingCart'
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Search, Menu, X, Bell, LogOut, User as UserIcon, BookOpen, Settings } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { cn } from "@/lib/utils";
 
 interface HeaderProps {
-  isScrolled?: boolean;
+  toggleSidebar?: () => void;
+  isSidebarOpen?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({
-  isScrolled = false
-}) => {
+const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
   const { user, signOut } = useAuth();
-
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+  
   return (
-    <header className={cn(
-      "sticky top-0 z-40 w-full transition-all",
-      isScrolled 
-        ? "bg-background border-b shadow-sm" 
-        : "bg-background/50 backdrop-blur-xl"
-    )}>
-      <div className="container flex h-16 items-center space-x-4 sm:justify-between sm:space-x-0">
-        <div className="flex gap-6 md:gap-10">
-          <Link to="/" className="items-center space-x-2 flex">
-            <span className="font-bold text-xl hidden md:inline-block">EduFlow</span>
-            <span className="font-bold text-xl md:hidden">EF</span>
-          </Link>
-          <NavigationMenu>
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <Link to="/explore">
-                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                    Explore
-                  </NavigationMenuLink>
-                </Link>
-              </NavigationMenuItem>
-              {user && (
-                <NavigationMenuItem>
-                  <Link to="/dashboard">
-                    <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                      Dashboard
-                    </NavigationMenuLink>
-                  </Link>
-                </NavigationMenuItem>
-              )}
-              <NavigationMenuItem>
-                <NavigationMenuTrigger>Categories</NavigationMenuTrigger>
-                <NavigationMenuContent>
-                  <ul className="grid gap-3 p-6 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr]">
-                    <li className="row-span-3">
-                      <NavigationMenuLink asChild>
-                        <a
-                          className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
-                          href="/"
-                        >
-                          <div className="mb-2 mt-4 text-lg font-medium">
-                            EduFlow
-                          </div>
-                          <p className="text-sm leading-tight text-muted-foreground">
-                            Transform your learning experience with our comprehensive courses and expert instructors.
-                          </p>
-                        </a>
-                      </NavigationMenuLink>
-                    </li>
-                    <li>
-                      <Link to="/explore?category=development" className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
-                        <div className="text-sm font-medium leading-none">Development</div>
-                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                          Web, Mobile, and Software Development courses
-                        </p>
-                      </Link>
-                    </li>
-                    <li>
-                      <Link to="/explore?category=business" className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
-                        <div className="text-sm font-medium leading-none">Business</div>
-                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                          Entrepreneurship, Marketing, and Management
-                        </p>
-                      </Link>
-                    </li>
-                    <li>
-                      <Link to="/explore?category=design" className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
-                        <div className="text-sm font-medium leading-none">Design</div>
-                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                          UI/UX, Graphic Design, and Creative courses
-                        </p>
-                      </Link>
-                    </li>
-                  </ul>
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
-        </div>
-        <div className="flex items-center justify-end flex-1 space-x-2">
+    <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur">
+      <div className="flex h-16 items-center px-4 md:px-6">
+        {/* Mobile menu button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="mr-2 md:hidden"
+          onClick={toggleSidebar}
+        >
+          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+        </Button>
+        
+        {/* Logo and site name */}
+        <Link to="/" className="flex items-center gap-2 mr-4">
+          <div className="h-8 w-8 rounded-md flex items-center justify-center bg-primary text-primary-foreground font-bold">
+            EF
+          </div>
+          <span className="font-semibold text-lg hidden md:block">EduFlow</span>
+        </Link>
+        
+        {/* Search form */}
+        <form onSubmit={handleSearch} className="hidden md:flex-1 md:flex max-w-sm mx-4">
+          <div className="relative w-full">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search courses..."
+              className="w-full pl-8 bg-background"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </form>
+        
+        <div className="ml-auto flex items-center gap-2">
+          {/* Navigation links - visible on larger screens */}
+          <nav className="hidden md:flex items-center gap-1">
+            <Button variant="ghost" asChild>
+              <Link to="/explore">Explore</Link>
+            </Button>
+          </nav>
+          
           {user ? (
             <div className="flex items-center gap-2">
-              {/* Shopping Cart */}
-              <ShoppingCart />
+              {/* Notification bell */}
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell size={20} />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
+              </Button>
               
+              {/* User menu dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Avatar className="h-8 w-8 cursor-pointer">
-                    <AvatarImage src="https://github.com/shadcn.png" alt="User" />
-                    <AvatarFallback>{user.first_name?.charAt(0)}{user.last_name?.charAt(0)}</AvatarFallback>
-                  </Avatar>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.avatar_url} alt={`${user.first_name} ${user.last_name}`} />
+                      <AvatarFallback>
+                        {user.first_name.charAt(0) + user.last_name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <div className="flex flex-col space-y-1 p-2">
+                    <p className="text-sm font-medium">{user.first_name} {user.last_name}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <div className="text-xs bg-secondary text-secondary-foreground rounded px-1 py-0.5 w-fit capitalize">
+                      {user.role}
+                    </div>
+                  </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/dashboard">Dashboard</Link>
+                  <DropdownMenuItem onClick={() => navigate("/dashboard")}>
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Dashboard
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/my-courses">My Courses</Link>
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>
+                    <UserIcon className="mr-2 h-4 w-4" />
+                    Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/cart">Cart</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile">Profile</Link>
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => signOut()}>
+                  <DropdownMenuItem onClick={signOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
                     Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           ) : (
-            <>
-              <Button variant="outline" asChild>
-                <Link to="/signin">Sign In</Link>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" asChild>
+                <Link to="/signin">Sign in</Link>
               </Button>
-              <Button asChild>
-                <Link to="/signup">Get Started</Link>
+              <Button variant="default" asChild>
+                <Link to="/signup">Sign up</Link>
               </Button>
-            </>
+            </div>
           )}
         </div>
       </div>
+      
+      {/* Mobile search - visible on smaller screens */}
+      <div className="md:hidden px-4 pb-3">
+        <form onSubmit={handleSearch} className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search courses..."
+            className="w-full pl-8 bg-background"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </form>
+      </div>
     </header>
-  )
-}
+  );
+};
 
-export default Header
+export default Header;
