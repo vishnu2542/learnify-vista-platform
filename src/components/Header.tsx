@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Search, Menu, X, Bell, LogOut, User as UserIcon, BookOpen, Settings } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import ShoppingCart from "./ShoppingCart";
 
 interface HeaderProps {
   toggleSidebar?: () => void;
@@ -71,6 +72,9 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
           
           {user ? (
             <div className="flex items-center gap-2">
+              {/* Shopping Cart */}
+              <ShoppingCart />
+              
               {/* Notification bell */}
               <Button variant="ghost" size="icon" className="relative">
                 <Bell size={20} />
