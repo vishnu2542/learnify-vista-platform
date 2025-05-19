@@ -8,6 +8,11 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1N
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
+// Function to check if Supabase is correctly configured
+export const isSupabaseConfigured = () => {
+  return supabaseUrl && supabaseKey && supabaseUrl !== '' && supabaseKey !== '';
+};
+
 // Initialize database procedures
 export const initializeSupabaseFunctions = async () => {
   try {
