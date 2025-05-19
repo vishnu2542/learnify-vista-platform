@@ -43,9 +43,9 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
         {/* Logo and site name */}
         <Link to="/" className="flex items-center gap-2 mr-4">
           <div className="h-8 w-8 rounded-md flex items-center justify-center bg-primary text-primary-foreground font-bold">
-            EF
+            SK
           </div>
-          <span className="font-semibold text-lg hidden md:block">EduFlow</span>
+          <span className="font-semibold text-lg hidden md:block">SKOOL</span>
         </Link>
         
         {/* Search form */}

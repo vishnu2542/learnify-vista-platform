@@ -125,9 +125,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, className }) => {
       <div className="p-4 h-16 flex items-center">
         <Link to="/" className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-md flex items-center justify-center bg-primary text-primary-foreground font-bold">
-            EF
+            SK
           </div>
-          <span className="font-semibold text-lg">EduFlow</span>
+          <span className="font-semibold text-lg">SKOOL</span>
         </Link>
       </div>
       
