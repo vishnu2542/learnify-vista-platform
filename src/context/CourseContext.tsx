@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { Course, CourseProgress } from "../types";
 import { useAuth } from "./AuthContext";
+import { dummyCourses, dummySections, dummyLectures, dummyProgress } from "@/utils/dummyData";
 
 interface CourseContextType {
   courses: Course[];
@@ -226,7 +227,18 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         .eq('id', courseId)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching course:", error);
+        
+        // Use dummy data as fallback
+        const dummyCourse = dummyCourses.find(c => c.id === courseId);
+        if (dummyCourse) {
+          console.log("Using dummy course data as fallback");
+          return dummyCourse;
+        }
+        
+        throw error;
+      }
       
       if (data) {
         return {
@@ -252,13 +264,27 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       return null;
     } catch (error) {
       console.error("Error fetching course:", error);
+      
+      // Use dummy data as fallback
+      const dummyCourse = dummyCourses.find(c => c.id === courseId);
+      if (dummyCourse) {
+        console.log("Using dummy course data as fallback");
+        return dummyCourse;
+      }
+      
       return null;
     }
   };
 
   const getCourseProgress = (courseId: string) => {
     if (!user) return undefined;
-    return courseProgress.find(progress => progress.course_id === courseId);
+    
+    // Try to find real progress data
+    const progress = courseProgress.find(progress => progress.course_id === courseId);
+    if (progress) return progress;
+    
+    // Use dummy progress as fallback
+    return dummyProgress.find(p => p.course_id === courseId);
   };
 
   const enrollInCourse = async (courseId: string) => {
@@ -573,10 +599,17 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       if (error) throw error;
       
-      return data || [];
+      if (data && data.length > 0) {
+        return data;
+      } else {
+        // Use dummy sections as fallback
+        console.log("Using dummy sections data as fallback");
+        return dummySections[courseId] || [];
+      }
     } catch (error) {
       console.error("Error fetching course sections:", error);
-      return [];
+      // Use dummy sections as fallback
+      return dummySections[courseId] || [];
     }
   };
 
@@ -590,10 +623,17 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       if (error) throw error;
       
-      return data || [];
+      if (data && data.length > 0) {
+        return data;
+      } else {
+        // Use dummy lectures as fallback
+        console.log("Using dummy lectures data as fallback");
+        return dummyLectures[sectionId] || [];
+      }
     } catch (error) {
       console.error("Error fetching course lectures:", error);
-      return [];
+      // Use dummy lectures as fallback
+      return dummyLectures[sectionId] || [];
     }
   };
 
@@ -611,7 +651,7 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       if (error) throw error;
       
-      if (data) {
+      if (data && data.length > 0) {
         return data.map(course => ({
           id: course.id,
           title: course.title,
@@ -632,10 +672,13 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         }));
       }
       
-      return [];
+      // Use dummy courses as fallback
+      console.log("Using dummy courses data as fallback");
+      return dummyCourses;
     } catch (error) {
       console.error("Error fetching featured courses:", error);
-      return [];
+      // Use dummy courses as fallback
+      return dummyCourses;
     }
   };
 

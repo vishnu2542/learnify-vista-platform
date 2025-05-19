@@ -48,9 +48,11 @@ const CourseDetail = () => {
       
       try {
         const courseData = await getCourse(courseId);
+        console.log("Retrieved course data:", courseData);
         setCourse(courseData);
       } catch (error) {
         console.error("Error fetching course:", error);
+        toast.error("Failed to load course data");
       } finally {
         setLoading(false);
       }
@@ -71,7 +73,10 @@ const CourseDetail = () => {
   if (loading) {
     return (
       <div className="container mx-auto max-w-7xl px-4 py-16">
-        <p className="text-muted-foreground">Loading course details...</p>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          Loading course details...
+        </div>
       </div>
     );
   }
